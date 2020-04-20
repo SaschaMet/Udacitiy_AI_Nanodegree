@@ -13,8 +13,7 @@ diagonal_unit_l = []
 diagonal_unit_r = []
 for num, row in enumerate(rows):
     diagonal_unit_l.append("{}{}".format(row, firstNum))
-    if "{}{}".format(row, lastNum) not in diagonal_unit_l:
-        diagonal_unit_r.append("{}{}".format(row, lastNum))
+    diagonal_unit_r.append("{}{}".format(row, lastNum))
     firstNum += 1
     lastNum -= 1
 
@@ -62,8 +61,35 @@ def naked_twins(values):
     Pseudocode for this algorithm on github:
     https://github.com/udacity/artificial-intelligence/blob/master/Projects/1_Sudoku/pseudocode.md
     """
-    # TODO: Implement this function!
-    raise NotImplementedError
+    # copy the values
+    out = values.copy()
+
+    # get the potential pairs by iterating over each unit
+    potential_pairs = []
+    for unit in unitlist:
+        for box in unit:
+            if(len(out[box]) == 2):
+                potential_pairs.append(box)
+
+    # get the real twin pairs
+    twins = []
+    # iterate over each potential pair
+    for p in potential_pairs:
+        # and find the boxes which have peers with the same value
+        for pe in peers[p]:
+            if out[pe] == out[p]:
+                twins.append([p, pe])
+
+    for i in range(len(twins)):
+        # get the peers of each box
+        peer_elements = set(peers[twins[i][0]]) & set(peers[twins[i][1]])
+        # delete the twins from each peer
+        for p in peer_elements:
+            if len(out[p]) > 1:
+                for val in out[twins[i][0]]:
+                    out[p] = out[p].replace(val, '')
+
+    return out
 
 
 def eliminate(values):
@@ -82,8 +108,12 @@ def eliminate(values):
     dict
         The values dictionary with the assigned values eliminated from peers
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    solved_values = [box for box in values.keys() if len(values[box]) == 1]
+    for box in solved_values:
+        digit = values[box]
+        for peer in peers[box]:
+            values[peer] = values[peer].replace(digit, '')
+    return values
 
 
 def only_choice(values):
@@ -106,8 +136,12 @@ def only_choice(values):
     -----
     You should be able to complete this function by copying your code from the classroom
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    for unit in unitlist:
+        for digit in '123456789':
+            dplaces = [box for box in unit if digit in values[box]]
+            if len(dplaces) == 1:
+                values[dplaces[0]] = digit
+    return values
 
 
 def reduce_puzzle(values):
@@ -124,8 +158,19 @@ def reduce_puzzle(values):
         The values dictionary after continued application of the constraint strategies
         no longer produces any changes, or False if the puzzle is unsolvable
     """
-    # TODO: Copy your code from the classroom and modify it to complete this function
-    raise NotImplementedError
+    solved_values = [box for box in values.keys() if len(values[box]) == 1]
+    stalled = False
+    while not stalled:
+        solved_values_before = len(
+            [box for box in values.keys() if len(values[box]) == 1])
+        values = eliminate(values)
+        values = only_choice(values)
+        solved_values_after = len(
+            [box for box in values.keys() if len(values[box]) == 1])
+        stalled = solved_values_before == solved_values_after
+        if len([box for box in values.keys() if len(values[box]) == 0]):
+            return False
+    return values
 
 
 def search(values):
@@ -147,8 +192,36 @@ def search(values):
     You should be able to complete this function by copying your code from the classroom
     and extending it to call the naked twins strategy.
     """
-    # TODO: Copy your code from the classroom to complete this function
-    raise NotImplementedError
+    # First, reduce the puzzle using the previous function
+    values = reduce_puzzle(values)
+    if values is False:
+        return False  # Failed earlier
+    # check if each box is solved
+    if all(len(values[s]) == 1 for s in boxes):
+        # check if the diagonals are solved, too
+        diagonal_r = []
+        diagonal_l = []
+
+        for unit in diagonal_unit_r:
+            if values[unit] not in diagonal_r:
+                diagonal_r.append(values[unit])
+
+        for unit in diagonal_unit_l:
+            if values[unit] not in diagonal_l:
+                diagonal_l.append(values[unit])
+
+        if len(diagonal_l) == len(diagonal_unit_l) and len(diagonal_r) == len(diagonal_unit_r):
+            return values  # Solved!
+
+    # Choose one of the unfilled squares with the fewest possibilities
+    n, s = min((len(values[s]), s) for s in boxes if len(values[s]) > 1)
+    # Now use recurrence to solve each one of the resulting sudokus, and
+    for value in values[s]:
+        new_sudoku = values.copy()
+        new_sudoku[s] = value
+        attempt = search(new_sudoku)
+        if attempt:
+            return attempt
 
 
 def solve(grid):
@@ -171,17 +244,24 @@ def solve(grid):
     return values
 
 
-# if __name__ == "__main__":
-#     diag_sudoku_grid = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
-#     display(grid2values(diag_sudoku_grid))
-#     result = solve(diag_sudoku_grid)
-#     display(result)
+if __name__ == "__main__":
+    diag_sudoku_grid1 = '2.............62....1....7...6..8...3...9...7...6..4...4....8....52.............3'
+    diag_sudoku_grid2 = "........4......1.....6......7....2.8...372.4.......3.7......4......5.6....4....2."
+    diag_sudoku_grid3 = "9.1....8.8.5.7..4.2.4....6...7......5..............83.3..6......9................"
+    diag_sudoku_grid4 = "2.............6.....1....7.......................................5..............."
+    grids = [
+        # diag_sudoku_grid1,
+        # diag_sudoku_grid2,
+        # diag_sudoku_grid3,
+        diag_sudoku_grid4
+    ]
 
-#     try:
-#         import PySudoku
-#         PySudoku.play(grid2values(diag_sudoku_grid), result, history)
-
-#     except SystemExit:
-#         pass
-#     except:
-#         print('We could not visualize your board due to a pygame issue. Not a problem! It is not a requirement.')
+    for grid in grids:
+        print("\n")
+        # display(grid2values(grid))
+        result = solve(grid)
+        # print("result = ", result)
+        print("Done? ", result["C7"] != result["E5"])
+        print("\n")
+        display(result)
+        print("\n")
